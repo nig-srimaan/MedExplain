@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MedExplain Cinema</title>
+<style>
+  :root {
+    --accent: #00f0ff;
+    --ink: #f8fafc;
+    --muted: #94a3b8;
+    --line: rgba(255,255,255,0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: transparent;
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  #root {
+    background:
+      radial-gradient(circle at 18% 0%, rgba(0,240,255,0.16), transparent 36%),
+      radial-gradient(circle at 90% 80%, rgba(255,42,95,0.12), transparent 32%),
+      linear-gradient(165deg, #070b14 0%, #0c1220 55%, #090d16 100%);
+    border: 1px solid rgba(0,240,255,0.28);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .kicker {
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .title {
+    font-size: 16px;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    margin-top: 2px;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    display: inline-block;
+    margin-right: 8px;
+    animation: blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  .tools { display: flex; gap: 8px; align-items: center; }
+  button.tool, .sev-pill {
+    background: rgba(255,255,255,0.04);
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  button.tool.on, button.tool:hover { border-color: var(--accent); color: white; box-shadow: 0 0 16px rgba(0,240,255,0.25); }
+  .sev-pill { cursor: default; color: #fda4af; border-color: rgba(255,42,95,0.45); }
+  .sev-pill b { font-size: 14px; color: #ff2a5f; }
+  .stage {
+    display: grid;
+    grid-template-columns: 1.08fr 0.92fr;
+    gap: 0;
+    min-height: 560px;
+  }
+  #viewport {
+    position: relative;
+    height: 480px;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(0,240,255,0.1), transparent 46%),
+      linear-gradient(#05070e, #05070e);
+    overflow: hidden;
+    border-right: 1px solid var(--line);
+  }
+  #viewport canvas.gl {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #labels { position: absolute; inset: 0; pointer-events: none; }
+  .tag {
+    position: absolute;
+    left: 0; top: 0;
+    transform: translate(-50%, -140%);
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: #ffe4ea;
+    background: rgba(9,12,21,0.82);
+    border: 1px solid #ff2a5f;
+    border-radius: 6px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    box-shadow: 0 0 12px rgba(255,42,95,0.35);
+  }
+  .vignette, .grain, #boot, #intro, #schematic {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .vignette {
+    background: radial-gradient(circle at 50% 45%, transparent 40%, rgba(0,0,0,0.55) 100%);
+  }
+  .grain {
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>");
+    animation: grain 0.45s steps(2) infinite;
+  }
+  @keyframes grain { 50% { transform: translate3d(-2%, 1%, 0); } }
+  #boot, #intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5,7,14,0.72);
+    letter-spacing: 0.22em;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: var(--accent);
+    transition: opacity 0.6s ease;
+  }
+  #boot.hide, #intro.hide { opacity: 0; }
+  #intro { pointer-events: none; background: #05070e; }
+  #intro .big {
+    font-family: "Segoe UI", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    font-size: 42px;
+    color: white;
+    margin-top: 8px;
+  }
+  #intro .sub { margin-top: 6px; color: #94a3b8; letter-spacing: 0.28em; font-size: 11px; }
+  .bars { position: absolute; left: 0; right: 0; height: 8%; background: #000; }
+  .bars.top { top: 0; } .bars.bot { bottom: 0; }
+  #schematic { display: none; background: radial-gradient(circle at 50% 40%, rgba(0,240,255,0.08), #05070e 70%); }
+  #schematic.show { display: block; pointer-events: auto; }
+  #schematic svg { width: 100%; height: 100%; }
+  .ticker {
+    position: absolute;
+    left: 12px; right: 12px; bottom: 10px;
+    font-family: Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: rgba(226,232,240,0.72);
+    pointer-events: none;
+  }
+  .telemetry { padding: 12px 12px 14px; }
+  .gauge {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    background: rgba(8,12,22,0.72);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+  }
+  .gauge.hot {
+    border-color: var(--accent);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 35%, transparent);
+    transform: translateX(2px);
+  }
+  .gauge svg { flex: 0 0 auto; }
+  .g-code { font-family: Consolas, monospace; font-size: 10px; color: var(--accent); font-weight: 700; }
+  .g-name { font-weight: 750; font-size: 14px; letter-spacing: -0.02em; }
+  .g-sub { color: var(--muted); font-size: 11px; margin-top: 1px; }
+  .vecs { display: flex; gap: 10px; margin-top: 4px; font-family: Consolas, monospace; font-size: 10px; color: #cbd5e1; }
+  .pill {
+    font-family: Consolas, monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+    color: #94a3b8;
+  }
+  .gauge.hot .pill { background: var(--accent); color: #041018; font-weight: 800; }
+  #ecg {
+    width: 100%;
+    height: 64px;
+    display: block;
+    background: #04060c;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    margin: 4px 0 8px;
+  }
+  .chips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .chip {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 8px;
+  }
+  .chip span { display: block; font-family: Consolas, monospace; font-size: 9px; color: #64748b; letter-spacing: 0.06em; }
+  .chip b { font-family: Consolas, monospace; font-size: 13px; color: var(--accent); }
+  .symptoms { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .sym {
+    font-size: 10px;
+    color: #dbeafe;
+    border: 1px solid rgba(0,240,255,0.25);
+    background: rgba(0,240,255,0.08);
+    border-radius: 999px;
+    padding: 3px 8px;
+  }
+  @media (max-width: 820px) {
+    .stage { grid-template-columns: 1fr; }
+    #viewport { height: 440px; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="topbar">
+    <div>
+      <div class="kicker"><span class="live-dot"></span>BIO-TELEMETRY // LIVE ANATOMICAL SCAN</div>
+      <div class="title" id="triageTitle">Somatic pain map &amp; three-organ triage</div>
+    </div>
+    <div class="tools">
+      <button class="tool on" id="mode3d" type="button">HOLOGRAM</button>
+      <button class="tool" id="mode2d" type="button">SCHEMATIC</button>
+      <button class="tool" id="pulseBtn" type="button">PULSE OFF</button>
+      <button class="tool" id="resetBtn" type="button">RESET ORBIT</button>
+      <div class="sev-pill">NOCICEPTION <b id="sev">00</b>/10</div>
+    </div>
+  </div>
+  <div class="stage">
+    <div id="viewport">
+      <div id="labels"></div>
+      <div id="schematic"></div>
+      <div class="vignette"></div>
+      <div class="grain"></div>
+      <div class="ticker">DRAG ORBIT · SCROLL DOLLY · CLICK A REGION · KEYS 1–7 LOCK · 0 CLEARS</div>
+      <div id="boot">CALIBRATING OPTICS</div>
+      <div id="intro">
+        <div class="bars top"></div>
+        <div class="kicker">KLH · CAPSTONE 24DSB3101</div>
+        <div class="big">MEDEXPLAIN</div>
+        <div class="sub">ABSOLUTE CLINICAL CINEMA</div>
+        <div class="bars bot"></div>
+      </div>
+    </div>
+    <div class="telemetry">
+      <div class="gauge" id="card-heart" data-dom="heart">
+        <svg width="62" height="62" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/><circle id="arc-heart" cx="32" cy="32" r="26" fill="none" stroke="#ff2a5f" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 163.4" transform="rotate(-90 32 32)"/><text id="pct-heart" x="32" y="36" text-anchor="middle" fill="#fff" font-family="Consolas,monospace" font-size="12" font-weight="700">0%</text></svg>
+        <div>
+          <div style="display:flex;justify-content:space-between;gap:8px;"><span class="g-code">SYS-01 // CARDIO</span><span class="pill">STANDBY</span></div>
+          <div class="g-name">Cardiovascular ischemia</div>
+          <div class="g-sub">CatBoost · Cleveland N=303 · AUC 0.932</div>
+          <div class="vecs"><span>PAIN <b id="pain-heart" style="color:#ff6b8b">0</b></span><span>SYMPTOM <b id="sym-heart" style="color:#00f0ff">0</b></span></div>
+        </div>
+      </div>
+      <div class="gauge" id="card-diabetes" data-dom="diabetes">
+        <svg width="62" height="62" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/><circle id="arc-diabetes" cx="32" cy="32" r="26" fill="none" stroke="#00f0ff" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 163.4" transform="rotate(-90 32 32)"/><text id="pct-diabetes" x="32" y="36" text-anchor="middle" fill="#fff" font-family="Consolas,monospace" font-size="12" font-weight="700">0%</text></svg>
+        <div>
+          <div style="display:flex;justify-content:space-between;gap:8px;"><span class="g-code">SYS-02 // METABOLIC</span><span class="pill">STANDBY</span></div>
+          <div class="g-name">Type-2 diabetes endocrine</div>
+          <div class="g-sub">CatBoost · Pima N=768 · AUC 0.884</div>
+          <div class="vecs"><span>PAIN <b id="pain-diabetes" style="color:#ff6b8b">0</b></span><span>SYMPTOM <b id="sym-diabetes" style="color:#00f0ff">0</b></span></div>
+        </div>
+      </div>
+      <div class="gauge" id="card-breast_cancer" data-dom="breast_cancer">
+        <svg width="62" height="62" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/><circle id="arc-breast_cancer" cx="32" cy="32" r="26" fill="none" stroke="#a855f7" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 163.4" transform="rotate(-90 32 32)"/><text id="pct-breast_cancer" x="32" y="36" text-anchor="middle" fill="#fff" font-family="Consolas,monospace" font-size="12" font-weight="700">0%</text></svg>
+        <div>
+          <div style="display:flex;justify-content:space-between;gap:8px;"><span class="g-code">SYS-03 // ONCOLOGY</span><span class="pill">STANDBY</span></div>
+          <div class="g-name">Mammary &amp; axillary WDBC</div>
+          <div class="g-sub">XGBoost · Wisconsin N=569 · AUC 0.991</div>
+          <div class="vecs"><span>PAIN <b id="pain-breast_cancer" style="color:#ff6b8b">0</b></span><span>SYMPTOM <b id="sym-breast_cancer" style="color:#00f0ff">0</b></span></div>
+        </div>
+      </div>
+      <canvas id="ecg"></canvas>
+      <div class="chips">
+        <div class="chip"><span>EST. MAX HR</span><b id="bio-hr">—</b></div>
+        <div class="chip"><span>ST DEPRESSION</span><b id="bio-st">—</b></div>
+        <div class="chip"><span>SYSTOLIC BP</span><b id="bio-bp">—</b></div>
+        <div class="chip"><span>EST. GLUCOSE</span><b id="bio-glu">—</b></div>
+        <div class="chip"><span>EST. BMI</span><b id="bio-bmi">—</b></div>
+        <div class="chip"><span>WDBC CONCAVE</span><b id="bio-concave">—</b></div>
+      </div>
+      <div class="symptoms" id="symptoms"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+const ZONES = [
+  { key: "head_general", name: "CRANIAL", pos: [0, 1.58, 0.08] },
+  { key: "upper_back", name: "DORSAL", pos: [0, 1.12, -0.22] },
+  { key: "breast_axilla", name: "AXILLA", pos: [-0.24, 0.98, 0.18] },
+  { key: "chest_center_left", name: "HEART", pos: [0.15, 1.02, 0.22] },
+  { key: "left_arm_shoulder_jaw", name: "L-ARM", pos: [0.55, 0.74, 0.04] },
+  { key: "abdomen_stomach", name: "VISCERA", pos: [0, 0.48, 0.18] },
+  { key: "legs_feet", name: "NEURO", pos: [0.0, -0.58, 0.12] },
+];
+const ACCENT = { heart: "#ff2a5f", diabetes: "#00f0ff", breast_cancer: "#a855f7" };
+const CIRC = 163.36;
+
+const root = document.getElementById("root");
+const viewport = document.getElementById("viewport");
+const labelsEl = document.getElementById("labels");
+const schematic = document.getElementById("schematic");
+const ecg = document.getElementById("ecg");
+const ctx = ecg.getContext("2d");
+
+let state = {};
+let shown = { heart: 0, diabetes: 0, breast_cancer: 0 };
+let audioOn = false;
+let audioCtx = null;
+let nextBeat = 0;
+let mode = "hologram";
+let renderer, scene, camera, body, laser, rings, points, heartMesh, glassMat, wireMat, scratch;
+let hotspots = {};
+let pickables = [];
+let raycaster = null;
+const pointer = { x: 0, y: 0 };
+let userYaw = 0.22, userPitch = 0, zoom = 1, auto = 0;
+let dragging = false, moved = 0, lastX = 0, lastY = 0, lastDrag = 0;
+let hoverKey = null;
+let webglOk = false;
+
+function send(type, data) {
+  window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data || {}), "*");
+}
+function emit(region) {
+  if (!region) return;
+  send("streamlit:setComponentValue", { value: { region: region, ts: Date.now() }, dataType: "json" });
+}
+function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+function prob(k) { return num(state.probs && state.probs[k], 0); }
+function selectedSet() { return new Set(state.regions || []); }
+
+function fitFrame() {
+  send("streamlit:setFrameHeight", { height: Math.ceil(root.offsetHeight + 2) });
+}
+
+function buildSchematic() {
+  schematic.innerHTML = `
+    <svg viewBox="0 0 270 365">
+      <defs>
+        <radialGradient id="hot" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff2a5f"/><stop offset="100%" stop-color="#881337" stop-opacity="0.2"/>
+        </radialGradient>
+      </defs>
+      <line x1="135" y1="8" x2="135" y2="355" stroke="rgba(0,240,255,0.14)" stroke-dasharray="3 4"/>
+      <line x1="15" y1="134" x2="255" y2="134" stroke="rgba(0,240,255,0.12)" stroke-dasharray="3 4"/>
+      <circle cx="135" cy="150" r="118" fill="none" stroke="rgba(0,240,255,0.08)"/>
+      <path d="M12,24 L12,10 L26,10 M258,24 L258,10 L244,10 M12,341 L12,355 L26,355 M258,341 L258,355 L244,355" fill="none" stroke="#00f0ff" stroke-width="1.5"/>
+      <path d="M135,18 C149,18 159,29 159,44 C159,57 151,68 144,72 L145,82 L125,82 L126,72 C119,68 111,57 111,44 C111,29 121,18 135,18 Z" fill="rgba(14,22,38,0.9)" stroke="#00f0ff"/>
+      <path d="M92,84 L178,84 C188,85 195,93 193,105 L182,168 L175,216 L95,216 L88,168 L77,105 C75,93 82,85 92,84 Z" fill="rgba(14,22,38,0.88)" stroke="#00f0ff"/>
+      <path d="M82,88 L56,148 L46,198 L62,202 L76,154 L90,112 Z" fill="rgba(14,22,38,0.85)" stroke="#00f0ff"/>
+      <path d="M188,88 L214,148 L224,198 L208,202 L194,154 L180,112 Z" fill="rgba(14,22,38,0.85)" stroke="#00f0ff"/>
+      <path d="M96,216 L131,216 L126,344 L102,344 Z M139,216 L174,216 L168,344 L144,344 Z" fill="rgba(14,22,38,0.85)" stroke="#00f0ff"/>
+      <circle data-key="head_general" cx="135" cy="46" r="19" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <rect data-key="upper_back" x="106" y="88" width="58" height="17" rx="6" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <ellipse data-key="breast_axilla" cx="112" cy="134" rx="20" ry="16" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <ellipse data-key="chest_center_left" cx="152" cy="134" rx="22" ry="17" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <path data-key="left_arm_shoulder_jaw" d="M188,90 L213,148 L222,194 L208,198 L194,152 L181,112 Z" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <ellipse data-key="abdomen_stomach" cx="135" cy="184" rx="36" ry="20" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <rect data-key="legs_feet" x="98" y="230" width="74" height="100" rx="12" fill="rgba(0,240,255,0.08)" stroke="#00f0ff"/>
+      <g fill="#e2e8f0" font-family="Consolas,monospace" font-size="8" font-weight="700" text-anchor="middle" pointer-events="none">
+        <text x="135" y="49">CRANIAL</text><text x="135" y="100">DORSAL</text>
+        <text x="112" y="137">AXILLA</text><text x="152" y="137">HEART</text>
+        <text x="135" y="188">VISCERA</text><text x="135" y="284">NEURO</text>
+      </g>
+      <line class="scan" x1="18" y1="16" x2="252" y2="16" stroke="#00f0ff" stroke-width="2">
+        <animate attributeName="y1" values="16;348;16" dur="5.5s" repeatCount="indefinite"/>
+        <animate attributeName="y2" values="16;348;16" dur="5.5s" repeatCount="indefinite"/>
+      </line>
+    </svg>`;
+  schematic.querySelectorAll("[data-key]").forEach((el) => {
+    el.style.cursor = "pointer";
+    el.addEventListener("click", () => emit(el.getAttribute("data-key")));
+  });
+}
+
+function paintSchematic() {
+  const selected = selectedSet();
+  schematic.querySelectorAll("[data-key]").forEach((el) => {
+    const on = selected.has(el.getAttribute("data-key"));
+    el.setAttribute("fill", on ? "url(#hot)" : "rgba(0,240,255,0.08)");
+    el.setAttribute("stroke", on ? "#ff2a5f" : "rgba(0,240,255,0.55)");
+    el.setAttribute("stroke-width", on ? "2.4" : "1.2");
+  });
+}
+
+function bootWebGL(THREE) {
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x05070e, 0.085);
+  camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.domElement.className = "gl";
+  viewport.insertBefore(renderer.domElement, viewport.firstChild);
+  raycaster = new THREE.Raycaster();
+  scratch = new THREE.Vector3();
+
+  scene.add(new THREE.HemisphereLight(0xc6fbff, 0x2a1020, 1.15));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  const key = new THREE.DirectionalLight(0xf8fdff, 1.35);
+  key.position.set(2.4, 3.2, 3.4);
+  scene.add(key);
+  const rose = new THREE.PointLight(0xff2a5f, 10, 6);
+  rose.position.set(0.2, 1.0, 0.8);
+  scene.add(rose);
+  const cyan = new THREE.PointLight(0x00f0ff, 8, 8);
+  cyan.position.set(-1.6, 1.6, 1.8);
+  scene.add(cyan);
+
+  glassMat = new THREE.MeshStandardMaterial({
+    color: 0x10283a, emissive: 0x062f3c, emissiveIntensity: 0.28,
+    metalness: 0.55, roughness: 0.28, transparent: true, opacity: 0.55,
+  });
+  wireMat = new THREE.MeshBasicMaterial({ color: 0x7ef6ff, wireframe: true, transparent: true, opacity: 0.34 });
+  body = new THREE.Group();
+  scene.add(body);
+
+  const solid = (geo, x, y, z, rot, scl) => {
+    const a = new THREE.Mesh(geo, glassMat);
+    const b = new THREE.Mesh(geo, wireMat);
+    [a, b].forEach((m) => {
+      m.position.set(x, y, z);
+      if (rot) m.rotation.set(rot[0], rot[1], rot[2]);
+      if (scl) m.scale.set(scl[0], scl[1], scl[2]);
+      body.add(m);
+    });
+  };
+  solid(new THREE.SphereGeometry(0.17, 32, 24), 0, 1.52, 0);
+  solid(new THREE.CylinderGeometry(0.06, 0.08, 0.12, 16), 0, 1.32, 0);
+  solid(new THREE.SphereGeometry(1, 28, 22), 0, 0.96, 0, null, [0.38, 0.4, 0.22]);
+  solid(new THREE.SphereGeometry(1, 24, 18), 0, 0.52, 0, null, [0.3, 0.26, 0.18]);
+  solid(new THREE.SphereGeometry(1, 24, 18), 0, 0.2, 0, null, [0.32, 0.16, 0.2]);
+  solid(new THREE.CapsuleGeometry(0.06, 0.42, 6, 12), -0.4, 0.78, 0, [0, 0, 0.18]);
+  solid(new THREE.CapsuleGeometry(0.06, 0.42, 6, 12), 0.4, 0.78, 0, [0, 0, -0.18]);
+  solid(new THREE.CapsuleGeometry(0.075, 0.58, 6, 12), -0.14, -0.32, 0);
+  solid(new THREE.CapsuleGeometry(0.075, 0.58, 6, 12), 0.14, -0.32, 0);
+  for (let i = 0; i < 4; i++) {
+    solid(new THREE.TorusGeometry(0.24 - i * 0.012, 0.006, 8, 40), 0, 1.08 - i * 0.09, 0.08, [Math.PI / 2.3, 0, 0]);
+  }
+
+  const core = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.075, 1),
+    new THREE.MeshBasicMaterial({ color: 0xff2a5f })
+  );
+  core.position.set(0.1, 1.0, 0.16);
+  body.add(core);
+  heartMesh = core;
+
+  ZONES.forEach((z) => {
+    const mat = new THREE.MeshBasicMaterial({ color: 0x1ee0ff, transparent: true, opacity: 0.9 });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.07, 18, 18), mat);
+    mesh.position.set(z.pos[0], z.pos[1], z.pos[2]);
+    mesh.userData.key = z.key;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.09, 0.115, 40),
+      new THREE.MeshBasicMaterial({ color: 0xff2a5f, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+    );
+    ring.position.copy(mesh.position);
+    body.add(mesh);
+    body.add(ring);
+    hotspots[z.key] = { mesh, ring, mat, name: z.name };
+    pickables.push(mesh);
+    const tag = document.createElement("div");
+    tag.className = "tag";
+    tag.textContent = z.name;
+    tag.style.display = "none";
+    labelsEl.appendChild(tag);
+    hotspots[z.key].tag = tag;
+  });
+
+  rings = new THREE.Group();
+  [[0.95, 0xff2a5f, 1.2], [1.2, 0x00f0ff, 1.05], [1.45, 0xa855f7, 1.35]].forEach(([r, c, tilt]) => {
+    const mesh = new THREE.Mesh(
+      new THREE.TorusGeometry(r, 0.007, 10, 90),
+      new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.45 })
+    );
+    mesh.rotation.x = tilt;
+    rings.add(mesh);
+  });
+  scene.add(rings);
+
+  laser = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.55, 0.035),
+    new THREE.MeshBasicMaterial({ color: 0x00fff2, transparent: true, opacity: 0.8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  scene.add(laser);
+
+  const count = 640;
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const rad = 1.5 + Math.random() * 2.2;
+    const th = Math.random() * Math.PI * 2;
+    arr[i * 3] = Math.cos(th) * rad;
+    arr[i * 3 + 1] = (Math.random() - 0.5) * 3.4;
+    arr[i * 3 + 2] = Math.sin(th) * rad;
+  }
+  const pg = new THREE.BufferGeometry();
+  pg.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+  points = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xbffcff, size: 0.02, transparent: true, opacity: 0.75, depthWrite: false }));
+  scene.add(points);
+
+  const grid = new THREE.GridHelper(7, 18, 0x00f0ff, 0x163044);
+  grid.position.y = -1.28;
+  const mats = Array.isArray(grid.material) ? grid.material : [grid.material];
+  mats.forEach((m) => { m.transparent = true; m.opacity = 0.28; });
+  scene.add(grid);
+
+  const resize = () => {
+    const w = viewport.clientWidth || 640;
+    const h = viewport.clientHeight || 620;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(h, 1);
+    camera.updateProjectionMatrix();
+  };
+  new ResizeObserver(resize).observe(viewport);
+  resize();
+
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener("pointerup", (e) => {
+    if (!dragging) return;
+    dragging = false;
+    lastDrag = performance.now();
+    if (moved < 6 && mode === "hologram") {
+      const key = pick(e);
+      if (key) emit(key);
+    }
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (dragging) {
+      moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY);
+      userYaw -= (e.clientX - lastX) * 0.008;
+      userPitch = Math.max(-0.6, Math.min(0.85, userPitch + (e.clientY - lastY) * 0.005));
+      lastX = e.clientX; lastY = e.clientY;
+    } else if (mode === "hologram") {
+      hoverKey = pick(e);
+      renderer.domElement.style.cursor = hoverKey ? "pointer" : "grab";
+    }
+  });
+  renderer.domElement.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    zoom = Math.max(0.72, Math.min(1.65, zoom + e.deltaY * 0.0011));
+  }, { passive: false });
+  webglOk = true;
+}
+
+function pick(e) {
+  if (!renderer || !camera) return null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(pickables, false);
+  return hits.length ? hits[0].object.userData.key : null;
+}
+
+function placeCamera() {
+  const focusY = 0.48;
+  const vFov = (camera.fov * Math.PI) / 180;
+  const aspect = Math.max(camera.aspect || 1, 0.35);
+  const halfH = 1.7;
+  const halfW = 1.05;
+  const distH = halfH / Math.tan(vFov / 2);
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
+  const distW = halfW / Math.tan(hFov / 2);
+  const dist = Math.max(distH, distW) * 1.08 * zoom;
+  const yaw = auto + userYaw;
+  camera.position.set(
+    Math.sin(yaw) * Math.cos(userPitch) * dist,
+    focusY + Math.sin(userPitch) * dist * 0.35,
+    Math.cos(yaw) * Math.cos(userPitch) * dist
+  );
+  camera.lookAt(0, focusY, 0);
+}
+
+function renderWorld(t) {
+  if (!webglOk || mode !== "hologram") return;
+  if (!dragging && t - lastDrag > 2200) auto += 0.00055;
+  placeCamera();
+  const selected = selectedSet();
+  const pHeart = prob("heart");
+  if (heartMesh) {
+    const s = 1 + Math.sin(t * 0.006 * (1.4 + pHeart * 4)) * (0.12 + pHeart * 0.45);
+    heartMesh.scale.setScalar(s);
+    heartMesh.material.color.set(pHeart > 0.45 ? 0xff2a5f : 0x00f0ff);
+  }
+  if (laser) {
+    laser.position.y = -1.15 + ((Math.sin(t * 0.00115) + 1) / 2) * 2.75;
+    laser.lookAt(camera.position);
+  }
+  if (rings) {
+    rings.rotation.y += 0.004;
+    rings.children.forEach((r, i) => { r.rotation.z += 0.003 + i * 0.001; });
+  }
+  if (points) points.rotation.y += 0.0009;
+  Object.keys(hotspots).forEach((key) => {
+    const h = hotspots[key];
+    const on = selected.has(key);
+    const hot = hoverKey === key;
+    h.mat.color.set(on ? 0xff2a5f : hot ? 0xfde047 : 0x1ee0ff);
+    const sc = on ? 1.45 : hot ? 1.2 : 1;
+    h.mesh.scale.setScalar(sc + (on ? Math.sin(t * 0.008) * 0.08 : 0));
+    h.ring.material.opacity = on ? 0.95 : 0;
+    h.ring.lookAt(camera.position);
+    const v = h.mesh.getWorldPosition(scratch).project(camera);
+    const w = viewport.clientWidth, ht = viewport.clientHeight;
+    const x = (v.x * 0.5 + 0.5) * w;
+    const y = (-v.y * 0.5 + 0.5) * ht;
+    const visible = on && v.z < 1;
+    h.tag.style.display = visible ? "block" : "none";
+    h.tag.style.transform = `translate(${x}px, ${y}px) translate(-50%, -150%)`;
+    h.tag.textContent = `${h.name} · ${num(state.severity, 0)}/10`;
+  });
+  renderer.render(scene, camera);
+}
+
+function drawEcg(t) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = ecg.clientWidth || 320;
+  const h = 64;
+  if (ecg.width !== Math.floor(w * dpr)) {
+    ecg.width = Math.floor(w * dpr);
+    ecg.height = Math.floor(h * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.beginPath();
+  for (let x = 0; x < w; x += 16) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+  ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
+  ctx.stroke();
+  const speed = 0.0015 + prob("heart") * 0.004;
+  const amp = 16 + num(state.severity, 0) * 1.3;
+  const col = state.highRisk ? "#ff2a5f" : "#00f0ff";
+  ctx.beginPath();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1.7;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 8;
+  for (let x = 0; x <= w; x++) {
+    const p = ((x / 90) + t * speed) % 1;
+    const g = (mu, s, a) => a * Math.exp(-((p - mu) ** 2) / (2 * s * s));
+    const y = h / 2 - (g(0.18, 0.02, 0.18) + g(0.34, 0.008, -0.18) + g(0.39, 0.01, 1) + g(0.45, 0.01, -0.28) + g(0.6, 0.035, 0.26)) * amp;
+    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+}
+
+function beat(t) {
+  if (!audioOn) return;
+  const bpm = 52 + prob("heart") * 46;
+  if (t < nextBeat) return;
+  nextBeat = t + 60000 / bpm;
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(86, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(48, audioCtx.currentTime + 0.09);
+  g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.14);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + 0.15);
+}
+
+function sync() {
+  const active = state.active || "";
+  root.style.setProperty("--accent", ACCENT[active] || "#10b981");
+  document.getElementById("triageTitle").textContent = state.title || "Somatic pain map & three-organ triage";
+  document.getElementById("sev").textContent = String(num(state.severity, 0)).padStart(2, "0");
+  ["heart", "diabetes", "breast_cancer"].forEach((k) => {
+    const card = document.getElementById("card-" + k);
+    card.classList.toggle("hot", k === active);
+    card.querySelector(".pill").textContent = k === active ? "PRIMARY ROUTE" : "STANDBY";
+    const ps = state.painScores || {};
+    const ss = state.symScores || {};
+    document.getElementById("pain-" + k).textContent = num(ps[k], 0).toFixed(2);
+    document.getElementById("sym-" + k).textContent = num(ss[k], 0).toFixed(2);
+  });
+  const bio = state.biomarkers || {};
+  document.getElementById("bio-hr").textContent = bio.hr != null ? bio.hr + " bpm" : "—";
+  document.getElementById("bio-st").textContent = bio.st != null ? bio.st + " mm" : "—";
+  document.getElementById("bio-bp").textContent = bio.bp != null ? bio.bp + " mmHg" : "—";
+  document.getElementById("bio-glu").textContent = bio.glu != null ? bio.glu + " mg/dL" : "—";
+  document.getElementById("bio-bmi").textContent = bio.bmi != null ? bio.bmi : "—";
+  document.getElementById("bio-concave").textContent = bio.concave != null ? Number(bio.concave).toFixed(3) : "—";
+  const box = document.getElementById("symptoms");
+  const syms = state.symptomLabels || [];
+  box.innerHTML = syms.length
+    ? syms.map((s) => `<span class="sym">${s}</span>`).join("")
+    : `<span class="sym">No systemic symptoms selected</span>`;
+  paintSchematic();
+  const hideGl = mode !== "hologram" || !webglOk;
+  if (renderer) renderer.domElement.style.display = hideGl ? "none" : "block";
+  labelsEl.style.display = hideGl ? "none" : "block";
+  schematic.classList.toggle("show", mode === "schematic" || !webglOk);
+}
+
+function frame(t) {
+  requestAnimationFrame(frame);
+  ["heart", "diabetes", "breast_cancer"].forEach((k) => {
+    const target = prob(k) * 100;
+    shown[k] += (target - shown[k]) * 0.12;
+    const arc = document.getElementById("arc-" + k);
+    const dash = (shown[k] / 100) * CIRC;
+    arc.setAttribute("stroke-dasharray", `${dash.toFixed(2)} ${CIRC}`);
+    document.getElementById("pct-" + k).textContent = `${Math.round(shown[k])}%`;
+  });
+  drawEcg(t);
+  beat(t);
+  renderWorld(t);
+}
+
+document.getElementById("mode3d").onclick = () => {
+  if (!webglOk) return;
+  mode = "hologram";
+  document.getElementById("mode3d").classList.add("on");
+  document.getElementById("mode2d").classList.remove("on");
+  sync();
+};
+document.getElementById("mode2d").onclick = () => {
+  mode = "schematic";
+  document.getElementById("mode2d").classList.add("on");
+  document.getElementById("mode3d").classList.remove("on");
+  sync();
+};
+document.getElementById("pulseBtn").onclick = () => {
+  audioOn = !audioOn;
+  document.getElementById("pulseBtn").textContent = audioOn ? "PULSE ON" : "PULSE OFF";
+  document.getElementById("pulseBtn").classList.toggle("on", audioOn);
+};
+document.getElementById("resetBtn").onclick = () => {
+  userYaw = 0.22; userPitch = 0; zoom = 1; auto = 0;
+};
+window.addEventListener("keydown", (e) => {
+  if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+  const n = "1234567".indexOf(e.key);
+  if (n >= 0) emit(ZONES[n].key);
+  if (e.key === "0") emit("no_pain");
+});
+
+function onRender(event) {
+  const data = event.data || {};
+  if (data.type !== "streamlit:render") return;
+  state = data.args || {};
+  sync();
+  fitFrame();
+}
+window.addEventListener("message", onRender);
+
+buildSchematic();
+import("./vendor/three.module.js").then((THREE) => {
+  try {
+    bootWebGL(THREE);
+  } catch (err) {
+    webglOk = false;
+    mode = "schematic";
+    console.error(err);
+  }
+}).catch((err) => {
+  webglOk = false;
+  mode = "schematic";
+  console.error(err);
+}).finally(() => {
+  document.getElementById("boot").classList.add("hide");
+  sync();
+  fitFrame();
+});
+setTimeout(() => document.getElementById("intro").classList.add("hide"), 1700);
+requestAnimationFrame(frame);
+send("streamlit:componentReady", { apiVersion: 1 });
+send("streamlit:setFrameHeight", { height: 760 });
+</script>
+</body>
+</html>
